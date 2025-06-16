@@ -2,98 +2,88 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Resolver Desigualdades</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desigualdades Lineales y Cuadráticas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f4f4;
-      padding: 20px;
+      background-color: #f9f9f9;
+      padding: 2rem;
+      line-height: 1.6;
     }
-
     h1 {
-      color: #333;
+      color: #222;
+      font-size: 2rem;
     }
-
     input[type="text"], button {
-      font-size: 16px;
+      font-size: 1.1rem;
       padding: 10px;
       margin: 10px 0;
       width: 100%;
-      max-width: 500px;
+      max-width: 600px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
-
     button {
-      background-color: #0066cc;
+      background-color: #007bff;
       color: white;
       border: none;
       cursor: pointer;
     }
-
     button:hover {
-      background-color: #004c99;
+      background-color: #0056b3;
     }
-
     #resultado {
       background-color: #fff;
       padding: 20px;
       margin-top: 20px;
       border-radius: 10px;
-      box-shadow: 0px 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
     }
-
     .pasos {
       margin-top: 15px;
-      background: #eef;
+      background: #eef6ff;
       padding: 10px;
       border-radius: 8px;
     }
-
-    .grafico {
-      margin-top: 20px;
-      font-family: monospace;
-      white-space: pre;
-      background: #222;
-      color: lime;
-      padding: 10px;
-      border-radius: 10px;
-      overflow-x: auto;
-    }
-
     .intervalo {
-      color: darkgreen;
+      color: #006400;
       font-weight: bold;
     }
-
     .error {
-      color: red;
+      color: #b30000;
       font-weight: bold;
+    }
+    canvas {
+      max-width: 600px;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
 
-  <h1>🔢 Resolver Desigualdades Lineales y Cuadráticas</h1>
-
+  <h1>Resolución de Desigualdades</h1>
   <input type="text" id="input" placeholder="Ej: x^2 - 4x + 3 >= 0">
   <button onclick="resolver()">Resolver</button>
-
   <div id="resultado"></div>
+  <canvas id="grafico"></canvas>
 
   <script>
     function resolver() {
       const entrada = document.getElementById('input').value.trim();
       const resultado = document.getElementById('resultado');
+      const ctx = document.getElementById('grafico').getContext('2d');
       resultado.innerHTML = "";
 
       const desigualdad = entrada.match(/(<=|>=|<|>)/);
       if (!desigualdad) {
-        resultado.innerHTML = '<p class="error">❌ Debes ingresar una desigualdad como "<", ">", "<=", ">=".</p>';
+        resultado.innerHTML = '<p class="error">❌ Ingresa una desigualdad válida como <, >, <= o >=.</p>';
         return;
       }
 
       const signo = desigualdad[0];
       const [izq, der] = entrada.split(signo).map(s => s.trim());
-
       const expr = `(${izq}) - (${der})`;
 
       try {
@@ -102,55 +92,45 @@
         const b = getCoef(evaluada, 'x', true);
         const c = getConstante(evaluada);
 
-        let pasos = `<div class="pasos"><strong>Paso 1:</strong> Llevamos todo a un solo lado: <code>${izq} ${signo} ${der}</code> → <code>${expr} ${signo} 0</code><br>`;
-        pasos += `<strong>Paso 2:</strong> Expresión simplificada: <code>${a}x² + ${b}x + ${c} ${signo} 0</code><br>`;
+        let pasos = `<div class="pasos"><strong>Paso 1:</strong> Pasamos todo al primer miembro: <code>${izq} ${signo} ${der}</code> → <code>${expr} ${signo} 0</code><br>`;
+        pasos += `<strong>Paso 2:</strong> Forma estándar: <code>${a}x² + ${b}x + ${c} ${signo} 0</code><br>`;
 
         let mensaje = '';
-        let grafico = '';
         let x1, x2;
+        let rango = '';
 
         if (a !== 0) {
           const d = b * b - 4 * a * c;
-          pasos += `<strong>Paso 3:</strong> Calculamos el discriminante: D = ${b}² - 4(${a})(${c}) = ${d}<br>`;
+          pasos += `<strong>Paso 3:</strong> Discriminante: D = ${d}<br>`;
+
           if (d < 0) {
-            mensaje = (a > 0 && (signo === ">" || signo === ">=")) ||
-                      (a < 0 && (signo === "<" || signo === "<="))
-              ? `<span class="intervalo">✅ Solución: Todos los números reales</span>`
-              : `<span class="intervalo">❌ No hay solución real</span>`;
-            grafico = generarGrafico(null, null, signo, 'todos');
+            mensaje = (a > 0 && [">", ">="].includes(signo)) || (a < 0 && ["<", "<="].includes(signo))
+              ? `<span class="intervalo">✅ Solución: Todos los reales</span>`
+              : `<span class="intervalo">❌ Sin solución real</span>`;
           } else {
             x1 = (-b - Math.sqrt(d)) / (2 * a);
             x2 = (-b + Math.sqrt(d)) / (2 * a);
             const menor = Math.min(x1, x2).toFixed(2);
             const mayor = Math.max(x1, x2).toFixed(2);
 
-            if (signo === "<") {
-              mensaje = `<span class="intervalo">✅ Solución: (${menor}, ${mayor})</span>`;
-            } else if (signo === "<=") {
-              mensaje = `<span class="intervalo">✅ Solución: [${menor}, ${mayor}]</span>`;
-            } else if (signo === ">") {
-              mensaje = `<span class="intervalo">✅ Solución: (-∞, ${menor}) ∪ (${mayor}, ∞)</span>`;
-            } else if (signo === ">=") {
-              mensaje = `<span class="intervalo">✅ Solución: (-∞, ${menor}] ∪ [${mayor}, ∞)</span>`;
-            }
+            if (signo === "<") rango = `(${menor}, ${mayor})`;
+            else if (signo === "<=") rango = `[${menor}, ${mayor}]`;
+            else if (signo === ">") rango = `(-∞, ${menor}) ∪ (${mayor}, ∞)`;
+            else if (signo === ">=") rango = `(-∞, ${menor}] ∪ [${mayor}, ∞)`;
 
-            grafico = generarGrafico(parseFloat(menor), parseFloat(mayor), signo);
+            mensaje = `<span class="intervalo">✅ Intervalo que satisface la desigualdad: ${rango}</span>`;
           }
-
         } else {
-          // Desigualdad lineal
-          const x = eval(`(${der}) - (${izq})`);
           const coef = getCoef(evaluada, 'x', true);
-          const solucion = eval(`(${c})/${-coef}`);
-          mensaje = `<span class="intervalo">✅ Solución: x ${signo} ${solucion.toFixed(2)}</span>`;
-          pasos += `<strong>Paso 3:</strong> Es una desigualdad lineal. Aislamos x: x ${signo} ${solucion.toFixed(2)}<br>`;
-          grafico = generarGrafico(solucion, null, signo, 'lineal');
+          const solucion = -c / coef;
+          mensaje = `<span class="intervalo">✅ Intervalo que satisface la desigualdad: x ${signo} ${solucion.toFixed(2)}</span>`;
         }
 
-        resultado.innerHTML = pasos + '</div>' + mensaje + '<div class="grafico">' + grafico + '</div>';
+        resultado.innerHTML = pasos + '</div>' + mensaje;
+        graficarFuncion(a, b, c, signo);
 
       } catch (e) {
-        resultado.innerHTML = '<p class="error">❌ Ocurrió un error al procesar la expresión. Revisa tu entrada.</p>';
+        resultado.innerHTML = '<p class="error">❌ Error en la resolución. Revisa tu expresión.</p>';
       }
     }
 
@@ -168,33 +148,44 @@
       return matches ? matches.map(Number).reduce((a, b) => a + b, 0) : 0;
     }
 
-    function generarGrafico(x1, x2, signo, tipo = '') {
-      let linea = '';
-      for (let i = -10; i <= 10; i++) {
-        let marca = ' ';
-        if (tipo === 'todos') marca = '*';
-        else if (tipo === 'lineal') {
-          if ((signo === '>' && i > x1) || (signo === '<' && i < x1) ||
-              (signo === '>=' && i >= x1) || (signo === '<=' && i <= x1)) {
-            marca = '*';
-          }
-        } else if (x1 !== null && x2 !== null) {
-          if ((signo === '<' && i > x1 && i < x2) ||
-              (signo === '<=' && i >= x1 && i <= x2)) {
-            marca = '*';
-          }
-          if ((signo === '>' && (i < x1 || i > x2)) ||
-              (signo === '>=' && (i <= x1 || i >= x2))) {
-            marca = '*';
+    function graficarFuncion(a, b, c, signo) {
+      const ctx = document.getElementById('grafico').getContext('2d');
+      const x = [], y = [];
+
+      for (let i = -20; i <= 20; i += 0.5) {
+        x.push(i);
+        y.push(a * i * i + b * i + c);
+      }
+
+      if (window.miGrafico) window.miGrafico.destroy();
+      window.miGrafico = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: x,
+          datasets: [{
+            label: 'f(x)',
+            data: y,
+            borderColor: '#007bff',
+            fill: false,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'x' } },
+            y: { title: { display: true, text: 'f(x)' }, beginAtZero: false }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Gráfica de la función ingresada'
+            }
           }
         }
-        linea += (i === 0 ? '|' : ' ') + marca;
-      }
-      linea += '\n' + ' '.repeat(22) + '0';
-      return linea;
+      });
     }
   </script>
 
 </body>
 </html>
-
