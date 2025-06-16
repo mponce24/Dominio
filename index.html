@@ -1,1 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resolver Desigualdades</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    input[type="text"], button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    button {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #004c99;
+    }
+
+    #resultado {
+      background-color: #fff;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .pasos {
+      margin-top: 15px;
+      background: #eef;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .grafico {
+      margin-top: 20px;
+      font-family: monospace;
+      white-space: pre;
+      background: #222;
+      color: lime;
+      padding: 10px;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+
+    .intervalo {
+      color: darkgreen;
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔢 Resolver Desigualdades Lineales y Cuadráticas</h1>
+
+  <input type="text" id="input" placeholder="Ej: x^2 - 4x + 3 >= 0">
+  <button onclick="resolver()">Resolver</button>
+
+  <div id="resultado"></div>
+
+  <script>
+    function resolver() {
+      const entrada = document.getElementById('input').value.trim();
+      const resultado = document.getElementById('resultado');
+      resultado.innerHTML = "";
+
+      const desigualdad = entrada.match(/(<=|>=|<|>)/);
+      if (!desigualdad) {
+        resultado.innerHTML = '<p class="error">❌ Debes ingresar una desigualdad como "<", ">", "<=", ">=".</p>';
+        return;
+      }
+
+      const signo = desigualdad[0];
+      const [izq, der] = entrada.split(signo).map(s => s.trim());
+
+      const expr = `(${izq}) - (${der})`;
+
+      try {
+        const evaluada = expr.replace(/\^/g, '**').replace(/(\d)x/g, '$1*x');
+        const a = getCoef(evaluada, 'x**2');
+        const b = getCoef(evaluada, 'x', true);
+        const c = getConstante(evaluada);
+
+        let pasos = `<div class="pasos"><strong>Paso 1:</strong> Llevamos todo a un solo lado: <code>${izq} ${signo} ${der}</code> → <code>${expr} ${signo} 0</code><br>`;
+        pasos += `<strong>Paso 2:</strong> Expresión simplificada: <code>${a}x² + ${b}x + ${c} ${signo} 0</code><br>`;
+
+        let mensaje = '';
+        let grafico = '';
+        let x1, x2;
+
+        if (a !== 0) {
+          const d = b * b - 4 * a * c;
+          pasos += `<strong>Paso 3:</strong> Calculamos el discriminante: D = ${b}² - 4(${a})(${c}) = ${d}<br>`;
+          if (d < 0) {
+            mensaje = (a > 0 && (signo === ">" || signo === ">=")) ||
+                      (a < 0 && (signo === "<" || signo === "<="))
+              ? `<span class="intervalo">✅ Solución: Todos los números reales</span>`
+              : `<span class="intervalo">❌ No hay solución real</span>`;
+            grafico = generarGrafico(null, null, signo, 'todos');
+          } else {
+            x1 = (-b - Math.sqrt(d)) / (2 * a);
+            x2 = (-b + Math.sqrt(d)) / (2 * a);
+            const menor = Math.min(x1, x2).toFixed(2);
+            const mayor = Math.max(x1, x2).toFixed(2);
+
+            if (signo === "<") {
+              mensaje = `<span class="intervalo">✅ Solución: (${menor}, ${mayor})</span>`;
+            } else if (signo === "<=") {
+              mensaje = `<span class="intervalo">✅ Solución: [${menor}, ${mayor}]</span>`;
+            } else if (signo === ">") {
+              mensaje = `<span class="intervalo">✅ Solución: (-∞, ${menor}) ∪ (${mayor}, ∞)</span>`;
+            } else if (signo === ">=") {
+              mensaje = `<span class="intervalo">✅ Solución: (-∞, ${menor}] ∪ [${mayor}, ∞)</span>`;
+            }
+
+            grafico = generarGrafico(parseFloat(menor), parseFloat(mayor), signo);
+          }
+
+        } else {
+          // Desigualdad lineal
+          const x = eval(`(${der}) - (${izq})`);
+          const coef = getCoef(evaluada, 'x', true);
+          const solucion = eval(`(${c})/${-coef}`);
+          mensaje = `<span class="intervalo">✅ Solución: x ${signo} ${solucion.toFixed(2)}</span>`;
+          pasos += `<strong>Paso 3:</strong> Es una desigualdad lineal. Aislamos x: x ${signo} ${solucion.toFixed(2)}<br>`;
+          grafico = generarGrafico(solucion, null, signo, 'lineal');
+        }
+
+        resultado.innerHTML = pasos + '</div>' + mensaje + '<div class="grafico">' + grafico + '</div>';
+
+      } catch (e) {
+        resultado.innerHTML = '<p class="error">❌ Ocurrió un error al procesar la expresión. Revisa tu entrada.</p>';
+      }
+    }
+
+    function getCoef(expr, variable, linear = false) {
+      const re = new RegExp(`([-+]?\\d*\\.?\\d*)\\*?${variable}`);
+      const match = expr.match(re);
+      if (!match) return 0;
+      let val = match[1];
+      return val === "" || val === "+" ? 1 : val === "-" ? -1 : parseFloat(val);
+    }
+
+    function getConstante(expr) {
+      const re = /([-+]?\d+)(?![^\^]*x)/g;
+      const matches = expr.match(re);
+      return matches ? matches.map(Number).reduce((a, b) => a + b, 0) : 0;
+    }
+
+    function generarGrafico(x1, x2, signo, tipo = '') {
+      let linea = '';
+      for (let i = -10; i <= 10; i++) {
+        let marca = ' ';
+        if (tipo === 'todos') marca = '*';
+        else if (tipo === 'lineal') {
+          if ((signo === '>' && i > x1) || (signo === '<' && i < x1) ||
+              (signo === '>=' && i >= x1) || (signo === '<=' && i <= x1)) {
+            marca = '*';
+          }
+        } else if (x1 !== null && x2 !== null) {
+          if ((signo === '<' && i > x1 && i < x2) ||
+              (signo === '<=' && i >= x1 && i <= x2)) {
+            marca = '*';
+          }
+          if ((signo === '>' && (i < x1 || i > x2)) ||
+              (signo === '>=' && (i <= x1 || i >= x2))) {
+            marca = '*';
+          }
+        }
+        linea += (i === 0 ? '|' : ' ') + marca;
+      }
+      linea += '\n' + ' '.repeat(22) + '0';
+      return linea;
+    }
+  </script>
+
+</body>
+</html>
 
